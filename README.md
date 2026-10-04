@@ -141,14 +141,22 @@ python main.py
 
 ```
 after_sales_agent/
-├── main.py                    # 主程序：加载 / 切分 / 建库 / 检索 / 生成
+├── main.py                    # 命令行主程序：加载 / 切分 / 建库 / 检索 / 生成
+├── api.py                     # FastAPI 接口
+├── evaluate.py                # 评测脚本：自动跑 44 条测试集
 ├── test_llm.py                # API 连通性测试
-├── requirements.txt
+├── requirements.txt           # 依赖清单（带版本号）
 ├── .env.example               # 环境变量模板
+├── tests/
+│   └── questions.json         # 44 条评测集
 ├── data/policies/             # 知识库文档
 │   ├── 退换货政策.md
 │   ├── 物流与配送政策.md
 │   └── 价保与发票政策.md
+├── docs/                      # README 配图
+│   ├── demo-answer.png
+│   ├── demo-reject.png
+│   └── demo-api.png
 └── chroma_db/                 # 向量库（首次运行自动生成，不提交）
 ```
 
@@ -156,6 +164,6 @@ after_sales_agent/
 
 - [x] 扩充评测集至 44 条，量化检索命中率与拒答准确率
 - [x] 引入阈值拒答机制
-- [ ] 封装为 FastAPI 接口
+- [x] 封装为 FastAPI 接口
 - [ ] 引入 rerank 提升边界样本的区分度
 - [ ] 加入订单查询工具，升级为 Agent
