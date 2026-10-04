@@ -60,7 +60,7 @@ def build_vectorstore(chunks):
     return vs
 
 
-def answer(vx, question, k=5):
+def answer(vx, question, k=3):
     # ---- 1. 取文档（用验证过可用的方法）----
     docs = vx.similarity_search(question, k=k)
 
@@ -85,8 +85,9 @@ def answer(vx, question, k=5):
 
     if top_score > THRESHOLD:
         print(f"\n[拒答] 最近距离 {top_score:.4f} > 阈值 {THRESHOLD}")
-        print("回答： 抱歉，知识库中没有相关信息，建议转人工客服。")
-        return
+        msg = "抱歉，知识库中没有相关信息，建议转人工客服。"
+        print("回答： ",msg)
+        return msg
 
     # ---- 5. 拼 Prompt 问大模型 ----
     context = "\n\n".join(f"[{i+1}] {d.page_content}" for i, d in enumerate(docs))
@@ -116,16 +117,13 @@ def answer(vx, question, k=5):
         print(f"  [{i+1}] {d.page_content[:70]}...")
     print("=" * 55)
 
+    return resp.content
+
 if __name__ == "__main__":
     print("✅ 进入主流程了")
     docs = load_docs()
     chunks = split_docs(docs)
     vx = build_vectorstore(chunks)
-    print("=== 可用方法开始 ===")
-    for m in sorted(dir(vx)):
-        if "similar" in m.lower():
-            print("   -", m)
-    print("=== 可用方法结束 ===")
 
 
     print("\n可以提问了（输入 q 退出）")

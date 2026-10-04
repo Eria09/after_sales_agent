@@ -31,14 +31,18 @@
 | 文档加载 | TextLoader + RecursiveCharacterTextSplitter |
 
 ## 效果演示
-正常问答
-![demo-answer.png](docs/demo-answer.png)
 
-无依据拒答
-![demo-reject.png](docs/demo-reject.png)
+**正常问答（带引用溯源）：**
 
+![正常问答](docs/demo-answer.png)
 
+**无依据拒答（阈值 0.80）：**
 
+![拒答效果](docs/demo-reject.png)
+
+**HTTP API（FastAPI）：**
+
+![API 调用示例](docs/demo-api.png)
 ## 快速开始
 
 ```bash
