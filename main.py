@@ -11,7 +11,7 @@ load_dotenv()
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL")
-SILICON_API_KEY = os.getenv("SILICON_API_KEY")
+SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
 MODEL=os.getenv("LLM_MODEL", "deepseek-chat")
 
 BASE_DIR = Path(__file__).parent
@@ -21,7 +21,7 @@ DB_DIR   = BASE_DIR / "chroma_db"
 print("脚本位置:", BASE_DIR)
 print("数据目录:", DATA_DIR, "存在" if DATA_DIR.exists() else "❌ 不存在")
 print("DeepSeek Key:", "已读取" if DEEPSEEK_API_KEY else "❌ 没读到")
-print("硅基流动 Key:", "已读取" if SILICON_API_KEY else "❌ 没读到")
+print("硅基流动 Key:", "已读取" if SILICONFLOW_API_KEY else "❌ 没读到")
 
 def load_docs():
     docs=[]
@@ -45,7 +45,7 @@ def split_docs(docs):
 def build_vectorstore(chunks):
     embeddings = OpenAIEmbeddings(
         model="BAAI/bge-m3",
-        api_key=SILICON_API_KEY,
+        api_key=SILICONFLOW_API_KEY,
         base_url="https://api.siliconflow.cn/v1",
         check_embedding_ctx_length=False,
     )
@@ -81,7 +81,7 @@ def answer(vx, question, k=5):
 
     # ---- 4. 拒答判断 ----
     top_score = distances[0]
-    THRESHOLD = 0.79          # ← 先随便定，看分布再改
+    THRESHOLD = 0.80          # ← 先随便定，看分布再改
 
     if top_score > THRESHOLD:
         print(f"\n[拒答] 最近距离 {top_score:.4f} > 阈值 {THRESHOLD}")
@@ -116,25 +116,27 @@ def answer(vx, question, k=5):
         print(f"  [{i+1}] {d.page_content[:70]}...")
     print("=" * 55)
 
-print("✅ 进入主流程了")
-docs = load_docs()
-chunks = split_docs(docs)
-vx = build_vectorstore(chunks)
-print("=== 可用方法开始 ===")
-for m in sorted(dir(vx)):
-    if "similar" in m.lower():
-        print("   -", m)
-print("=== 可用方法结束 ===")
+if __name__ == "__main__":
+    print("✅ 进入主流程了")
+    docs = load_docs()
+    chunks = split_docs(docs)
+    vx = build_vectorstore(chunks)
+    print("=== 可用方法开始 ===")
+    for m in sorted(dir(vx)):
+        if "similar" in m.lower():
+            print("   -", m)
+    print("=== 可用方法结束 ===")
 
 
-print("\n可以提问了（输入 q 退出）")
-while True:
-        q =input("\n你问:").strip()
-        if q.lower() in ('q','quit','exit'):
-            break
-        if not q:
-            continue
-        try:
-            answer(vx,q)
-        except Exception as e:
-            print("❌ 出错：", type(e).__name__, e)
+    print("\n可以提问了（输入 q 退出）")
+    while True:
+            q =input("\n你问:").strip()
+            if q.lower() in ('q','quit','exit'):
+                break
+            if not q:
+                continue
+            try:
+                answer(vx,q)
+            except Exception as e:
+                print("❌ 出错：", type(e).__name__, e)
+
