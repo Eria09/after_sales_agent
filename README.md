@@ -29,6 +29,7 @@
 | Embedding 模型 | BAAI/bge-m3（硅基流动） |
 | 大语言模型 | DeepSeek-chat |
 | 文档加载 | TextLoader + RecursiveCharacterTextSplitter |
+| 接口层 | FastAPI + Pydantic |
 
 ## 效果演示
 
@@ -145,5 +146,12 @@ after_sales_agent/
 - [x] 扩充评测集至 44 条，量化检索命中率与拒答准确率
 - [x] 引入阈值拒答机制
 - [x] 封装为 FastAPI 接口
+- [x] 优化检索链路：单次查询同时取回文本与距离（embedding 调用减半）
 - [ ] 引入 rerank 提升边界样本的区分度
 - [ ] 加入订单查询工具，升级为 Agent
+
+## 已知不足
+
+- 边界样本距离区间重叠（有答案最大 0.8701 / 无答案最小 0.8319），单靠 L2 距离无法完全区分，需引入 rerank 或改用其他相关性度量
+- 知识库仅 3 份文档 / 7 个片段，规模小，尚未验证大文档集下的检索效果
+- HNSW 索引构建存在随机性，多次运行距离有 ±0.001 波动，不影响结论
