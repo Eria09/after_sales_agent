@@ -5,6 +5,7 @@
 import json
 import os
 import re
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -12,6 +13,15 @@ from langchain_chroma import Chroma
 from langchain_community.document_loaders import TextLoader
 from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+# ---------- 控制台编码兜底 ----------
+# 输出被重定向成管道时（PyCharm Run 窗口 / 重定向到文件），cp936 无法编码
+# ✅ ❌ ⚠️ 这些字符，会抛 UnicodeEncodeError 中断评测。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError):
+        pass
 
 # ---------- 配置 ----------
 load_dotenv()
@@ -142,23 +152,29 @@ def main():
     questions = json.loads(QUESTIONS_FILE.read_text(encoding="utf-8"))
     print(f"共加载 {len(questions)} 条测试问题\n")
 
+    # 4 组参数对照 —— 对应 README「参数对比实验」那张表，一键复现，不用手改代码
     configs = [
         (300, 50, 3),
+        (300, 50, 5),
+        (500, 50, 3),
+        (500, 50, 5),
     ]
+    BEST = (300, 50, 3)          # 最终选定配置：下面的明细与阈值扫描都基于它
 
     print(f"{'chunk_size':>10} {'k':>3} {'检索命中率':>10} {'误拒数':>7} {'拒答准确率':>10}")
     print("-" * 50)
 
-    result = None
-    vs = None
+    result, vs, best_k = None, None, BEST[2]
     for cs, co, k in configs:
-        vs = build_vectorstore(cs, co)
-        result = evaluate(vs, questions, k)
-        print(f"{cs:>10} {k:>3} {result['hit_rate']:>9.1%} "
-              f"{result['false_reject']:>7} {result['reject_rate']:>9.1%}")
+        v = build_vectorstore(cs, co)
+        r = evaluate(v, questions, k)
+        print(f"{cs:>10} {k:>3} {r['hit_rate']:>9.1%} "
+              f"{r['false_reject']:>7} {r['reject_rate']:>9.1%}")
+        if (cs, co, k) == BEST:
+            vs, result = v, r
 
     print("\n" + "=" * 75)
-    print("明细（chunk_size=300, k=3）")
+    print(f"明细（chunk_size={BEST[0]}, k={best_k}）")
     print("=" * 75)
     for d in result["details"]:
         if d["matched"] is None:
@@ -169,7 +185,7 @@ def main():
                 tag += " / ⚠️ 误拒"
         print(f"  [{d['id']:>2}] {tag:<18} 距离={d['distance']:.4f}  {d['question']}")
 
-    sweep_threshold(vs, questions, 3)
+    sweep_threshold(vs, questions, best_k)
 
 
 if __name__ == "__main__":

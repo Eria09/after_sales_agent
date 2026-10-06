@@ -1,11 +1,21 @@
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 from langchain_chroma import  Chroma
 from langchain_community.document_loaders import TextLoader
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+# ---------- 控制台编码兜底 ----------
+# 本文件顶层就会打印 ❌（Key 没读到 / 目录不存在），Windows cp936 控制台在
+# 输出被重定向成管道时会抛 UnicodeEncodeError，导致连报错都看不到。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError):
+        pass
 
 load_dotenv()
 
@@ -81,13 +91,15 @@ def answer(vx, question, k=3):
 
     # ---- 4. 拒答判断 ----
     top_score = distances[0]
-    THRESHOLD = 0.80          # ← 先随便定，看分布再改
+    # 0.80 来自 44 条评测集扫 6 档（见 README「拒答阈值调优」）：拒答准确率 100%、误拒 2/36。
+    # 取舍理由：漏放（模型编造答案）比误拒（说"不知道"）严重得多。
+    THRESHOLD = 0.80
 
     if top_score > THRESHOLD:
         print(f"\n[拒答] 最近距离 {top_score:.4f} > 阈值 {THRESHOLD}")
         msg = "抱歉，知识库中没有相关信息，建议转人工客服。"
         print("回答： ",msg)
-        return msg
+        return msg, []
 
     # ---- 5. 拼 Prompt 问大模型 ----
     context = "\n\n".join(f"[{i+1}] {d.page_content}" for i, d in enumerate(docs))
@@ -117,7 +129,8 @@ def answer(vx, question, k=3):
         print(f"  [{i+1}] {d.page_content[:70]}...")
     print("=" * 55)
 
-    return resp.content
+    # 返回 (答案, 引用片段)：API 层要把来源一起吐给调用方，不能只打印在控制台
+    return resp.content, [d.page_content for d in docs]
 
 if __name__ == "__main__":
     print("✅ 进入主流程了")

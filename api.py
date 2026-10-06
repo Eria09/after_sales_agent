@@ -26,6 +26,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     rejected: bool
+    sources: list[str] = []
 
 @app.get("/")
 def root():
@@ -34,6 +35,6 @@ def root():
 @app.post("/chat",response_model=ChatResponse)
 def chat(request: ChatRequest):
     vs = get_vectorstore()
-    ans=answer(vx=vs, question=request.question)
+    ans, sources = answer(vx=vs, question=request.question)
     rejected ="没有相关信息"in ans or"未提及" in ans
-    return {"answer":ans,"rejected":rejected}
+    return {"answer":ans,"rejected":rejected,"sources":sources}
