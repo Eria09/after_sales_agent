@@ -36,5 +36,7 @@ def root():
 def chat(request: ChatRequest):
     vs = get_vectorstore()
     ans, sources = answer(vx=vs, question=request.question)
-    rejected ="没有相关信息"in ans or"未提及" in ans
+    # 拒答的结构化特征就是"没有引用片段"——不要去猜答案文案。
+    # 否则 main.py 里把拒答话术改一个字，这里的 rejected 就静默失效。
+    rejected = not sources
     return {"answer":ans,"rejected":rejected,"sources":sources}

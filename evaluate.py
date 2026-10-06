@@ -42,7 +42,9 @@ if not SILICON_KEY:
         "   并确认 .env 在项目根目录"
     )
 
-print("✅ 硅基流动 Key 已读取:", SILICON_KEY[:8] + "...")
+# 不打印 Key 的任何片段：评测输出经常被截图放进 README / 简历，
+# 没有任何理由让密钥的一部分出现在图片里。
+print("✅ 硅基流动 Key 已读取：已配置")
 
 EMBEDDINGS = OpenAIEmbeddings(
     model="BAAI/bge-m3",
