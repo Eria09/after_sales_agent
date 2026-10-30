@@ -2,12 +2,13 @@
 评测脚本：自动跑测试集，输出检索命中率与拒答准确率
 运行：python evaluate.py
 """
+from langchain_core.documents import Document
 import json
 import os
 import re
 import sys
 from pathlib import Path
-
+from config import THRESHOLD
 from dotenv import load_dotenv
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import TextLoader
@@ -15,8 +16,6 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # ---------- 控制台编码兜底 ----------
-# 输出被重定向成管道时（PyCharm Run 窗口 / 重定向到文件），cp936 无法编码
-# ✅ ❌ ⚠️ 这些字符，会抛 UnicodeEncodeError 中断评测。
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8", errors="replace")
@@ -29,8 +28,6 @@ load_dotenv()
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data" / "policies"
 QUESTIONS_FILE = BASE_DIR / "tests" / "questions.json"
-
-THRESHOLD = 0.80         # 拒答阈值
 
 # 读取 API Key（两个变量名都试，避免不一致）
 SILICON_KEY = os.getenv("SILICONFLOW_API_KEY") or os.getenv("SILICON_API_KEY")
@@ -77,15 +74,17 @@ def build_vectorstore(chunk_size: int, chunk_overlap: int):
     return Chroma.from_documents(chunks, EMBEDDINGS)
 
 
-def retrieve(vs, question: str, k: int):
-    """返回 [(Document, 距离), ...]，距离越小越相关"""
-    docs = vs.similarity_search(question, k=k)
-    qv = vs._embedding_function.embed_query(question)
+def retrieve(vs, q:str, k:int):
+    qv=vs._embedding_function.embed_query(q)
     raw = vs._collection.query(
-        query_embeddings=[qv], n_results=k, include=["distances"]
+        query_embeddings=[qv], n_results=k, include=["documents", "distances", "metadatas"]
     )
-    return list(zip(docs, raw["distances"][0]))
 
+    doc =[
+        Document(page_content=t,metadata=m or {})
+        for t, m in zip(raw["documents"][0],raw["metadatas"][0])
+    ]
+    return list(zip(doc, raw["distances"][0]))
 
 # ---------- 评测 ----------
 def evaluate(vs, questions, k):

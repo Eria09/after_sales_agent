@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from main import load_docs,split_docs,build_vectorstore,answer
 
 app = FastAPI(
-    title='后客服 RAG 问答助手',
+    title='售后客服 RAG 问答助手',
     description="基于 LangChain + Chroma + DeepSeek 的知识库问答接口",
     version="1.0.0",
 )

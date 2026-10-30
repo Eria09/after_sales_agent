@@ -1,4 +1,3 @@
-
 import os
 import sys
 from pathlib import Path
@@ -7,6 +6,7 @@ from langchain_chroma import  Chroma
 from langchain_community.document_loaders import TextLoader
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from config import CHUNK_SIZE, CHUNK_OVERLAP, THRESHOLD, TOP_K
 
 # ---------- 控制台编码兜底 ----------
 # 本文件顶层就会打印 ❌（Key 没读到 / 目录不存在），Windows cp936 控制台在
@@ -49,8 +49,8 @@ def load_docs():
 
 def split_docs(docs):
     splitter = RecursiveCharacterTextSplitter(
-        chunk_overlap=50,
-        chunk_size = 300,
+        chunk_overlap=CHUNK_OVERLAP,
+        chunk_size=CHUNK_SIZE,
         separators=["\n\n", "\n", "。", "！", "？", "，", ""],
     )
     chunks=splitter.split_documents(docs)
@@ -58,22 +58,21 @@ def split_docs(docs):
     return chunks
 
 
-def build_vectorstore(chunks):
+def build_vectorstore(chunks, force_rebuild=False):
     embeddings = OpenAIEmbeddings(
         model="BAAI/bge-m3",
         api_key=SILICONFLOW_API_KEY,
         base_url="https://api.siliconflow.cn/v1",
         check_embedding_ctx_length=False,
     )
-    if DB_DIR.exists():
-        print("已有向量库，直接加载")
-        return Chroma(persist_directory=str(DB_DIR),embedding_function=embeddings)
-
-
-    print("首次运行，建库中（可能要 1-2 分钟）...")
-    vs=Chroma.from_documents(chunks,embeddings,persist_directory=str(DB_DIR))
-    print("建库完成")
-    return vs
+    db_file = DB_DIR / "chroma.sqlite3"
+    newest_src = max(p.stat().st_mtime for p in DATA_DIR.glob("*.md"))
+    stale = (not db_file.exists()) or (db_file.stat().st_mtime < newest_src)
+    if not force_rebuild and not stale:
+        print("向量库是最新的，直接加载")
+        return Chroma(persist_directory=str(DB_DIR), embedding_function=embeddings)
+    print("文档有更新或首次运行，重建中...")
+    return Chroma.from_documents(chunks, embeddings, persist_directory=str(DB_DIR))
 
 
 def answer(vx, question, k=3):
@@ -85,7 +84,7 @@ def answer(vx, question, k=3):
     raw = vx._collection.query(
         query_embeddings=[query_vector],
         n_results=k,
-        include=["documents", "distances"],
+        include=["documents", "distances", "metadatas"],
     )
     texts = raw["documents"][0]
     distances = raw["distances"][0]
@@ -101,7 +100,6 @@ def answer(vx, question, k=3):
     # 0.80 来自 44 条评测集扫 7 档阈值 0.75~1.05（见 README「拒答阈值调优」）：
     # 该档拒答准确率 100%、误拒 2/36。
     # 取舍理由：漏放（模型编造答案）比误拒（说"不知道"）严重得多。
-    THRESHOLD = 0.80
 
     if top_score > THRESHOLD:
         print(f"\n[拒答] 最近距离 {top_score:.4f} > 阈值 {THRESHOLD}")
@@ -150,12 +148,12 @@ if __name__ == "__main__":
 
     print("\n可以提问了（输入 q 退出）")
     while True:
-            q =input("\n你问:").strip()
-            if q.lower() in ('q','quit','exit'):
-                break
-            if not q:
-                continue
-            try:
-                answer(vx,q)
-            except Exception as e:
-                print("❌ 出错：", type(e).__name__, e)
+        q =input("\n你问:").strip()
+        if q.lower() in ('q','quit','exit'):
+            break
+        if not q:
+            continue
+        try:
+            answer(vx,q)
+        except Exception as e:
+            print("❌ 出错：", type(e).__name__, e)
